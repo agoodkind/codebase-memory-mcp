@@ -406,6 +406,49 @@ TEST(java_class_extends_and_implements) {
     PASS();
 }
 
+/* REPRODUCTION (RED until fixed) — Python `class Animal(Base):` must extract the
+ * BARE base name "Base", but extract_base_classes captures the whole
+ * `superclasses` argument_list text "(Base)" instead: collect_bases_from_field
+ * (internal/cbm/extract_defs.c) matches only type_identifier / generic_type /
+ * qualified_name / scoped_type_identifier / user_type, while tree-sitter-python
+ * uses a plain `identifier` node for the base — so no child matches and the
+ * raw-field fallback grabs the argument_list text "(Base)" (parens included).
+ * DOWNSTREAM SYMPTOM: that malformed name never resolves to the Base class node,
+ * so EVERY Python subclass yields ZERO INHERITS edges (observed in the P6
+ * graph-contract suite). Fix: have collect_bases_from_field accept `identifier`
+ * (or strip the argument_list parens). This test stays RED as the regression
+ * guard / reproduction until the fix lands — see CLAUDE.md "Bug Fixing —
+ * Reproduce-First". */
+TEST(python_class_base_extracted_bare) {
+    CBMFileResult *r = extract("class Base:\n    pass\n\n\nclass Animal(Base):\n    pass\n",
+                               CBM_LANG_PYTHON, "t", "models.py");
+    ASSERT_NOT_NULL(r);
+
+    CBMDefinition *cls = NULL;
+    for (int i = 0; i < r->defs.count; i++) {
+        if (r->defs.items[i].label && strcmp(r->defs.items[i].label, "Class") == 0 &&
+            r->defs.items[i].name && strcmp(r->defs.items[i].name, "Animal") == 0) {
+            cls = &r->defs.items[i];
+            break;
+        }
+    }
+    ASSERT_NOT_NULL(cls);
+    ASSERT_NOT_NULL(cls->base_classes); /* a subclass must record at least one base */
+
+    bool saw_bare_base = false;
+    for (const char **b = cls->base_classes; *b; b++) {
+        if (strcmp(*b, "Base") == 0) {
+            saw_bare_base = true;
+        }
+    }
+    /* CURRENTLY FAILS: base_classes holds "(Base)" (argument_list text), not the
+     * bare "Base" needed for INHERITS resolution. */
+    ASSERT_TRUE(saw_bare_base);
+
+    cbm_free_result(r);
+    PASS();
+}
+
 /* --- PHP --- */
 TEST(php_class) {
     CBMFileResult *r = extract("<?php\nclass User { public string $name; public function "
@@ -2768,6 +2811,7 @@ SUITE(extraction) {
     RUN_TEST(java_method);
     RUN_TEST(java_interface);
     RUN_TEST(java_class_extends_and_implements);
+    RUN_TEST(python_class_base_extracted_bare);
     RUN_TEST(php_class);
     RUN_TEST(php_function);
     RUN_TEST(ruby_class);
