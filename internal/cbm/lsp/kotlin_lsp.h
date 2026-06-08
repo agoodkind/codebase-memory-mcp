@@ -59,10 +59,10 @@
  * `foo` is resolved when used as a bare identifier. */
 typedef enum {
     CBM_KT_USE_UNKNOWN = 0,
-    CBM_KT_USE_TYPE,        /* class / interface / object / typealias */
-    CBM_KT_USE_FUNCTION,    /* top-level fun, extension fun */
-    CBM_KT_USE_PROPERTY,    /* top-level val/var */
-    CBM_KT_USE_WILDCARD,    /* import a.b.* — local_name is a.b prefix */
+    CBM_KT_USE_TYPE,     /* class / interface / object / typealias */
+    CBM_KT_USE_FUNCTION, /* top-level fun, extension fun */
+    CBM_KT_USE_PROPERTY, /* top-level val/var */
+    CBM_KT_USE_WILDCARD, /* import a.b.* — local_name is a.b prefix */
 } CBMKotlinUseKind;
 
 /* KotlinLSPContext — per-file state for Kotlin call resolution. */
@@ -74,27 +74,27 @@ typedef struct KotlinLSPContext {
     CBMScope *current_scope;
 
     /* Package context. Empty string for default package. */
-    const char *package_qn;          /* dotted form, e.g. "com.example.foo" */
-    const char *module_qn;           /* file-level QN, e.g. "<project>.com.example.foo.<File>" */
-    const char *project_name;        /* project prefix (without trailing dot) */
-    const char *file_class_qn;       /* JVM file-class QN, "<package>.<File>Kt" */
-    const char *rel_path;            /* for diagnostics */
+    const char *package_qn;    /* dotted form, e.g. "com.example.foo" */
+    const char *module_qn;     /* file-level QN, e.g. "<project>.com.example.foo.<File>" */
+    const char *project_name;  /* project prefix (without trailing dot) */
+    const char *file_class_qn; /* JVM file-class QN, "<package>.<File>Kt" */
+    const char *rel_path;      /* for diagnostics */
 
     /* Import map (parallel arrays). Kotlin imports are flat — no grouping
      * — but each may have an `as` alias. Wildcard imports record the
      * package prefix in `import_targets[i]` with `import_kinds[i] = WILDCARD`
      * and `import_locals[i] = NULL`. */
-    const char **import_locals;      /* alias name (or short name) used in code */
-    const char **import_targets;     /* full FQN being imported */
+    const char **import_locals;  /* alias name (or short name) used in code */
+    const char **import_targets; /* full FQN being imported */
     CBMKotlinUseKind *import_kinds;
     int import_count;
     int import_cap;
 
     /* Current declaration context. */
-    const char *enclosing_func_qn;   /* function we are resolving inside */
-    const char *enclosing_class_qn;  /* innermost class/interface/object QN, or NULL */
+    const char *enclosing_func_qn;      /* function we are resolving inside */
+    const char *enclosing_class_qn;     /* innermost class/interface/object QN, or NULL */
     const char *enclosing_companion_qn; /* if inside a companion object body */
-    const char *enclosing_super_qn;  /* primary super-class QN of current class, or NULL */
+    const char *enclosing_super_qn;     /* primary super-class QN of current class, or NULL */
 
     /* Current `this` and `super` types. */
     const CBMType *this_type;
@@ -116,9 +116,8 @@ typedef struct KotlinLSPContext {
 
 /* Initialize a KotlinLSPContext for processing one file. */
 void kotlin_lsp_init(KotlinLSPContext *ctx, CBMArena *arena, const char *source, int source_len,
-                     const CBMTypeRegistry *registry, const char *package_qn,
-                     const char *module_qn, const char *project_name, const char *rel_path,
-                     CBMResolvedCallArray *out);
+                     const CBMTypeRegistry *registry, const char *package_qn, const char *module_qn,
+                     const char *project_name, const char *rel_path, CBMResolvedCallArray *out);
 
 /* Add an import mapping. local_name is the name used in code (alias or
  * short name); target_qn is the full dotted FQN. For wildcard imports,
@@ -155,8 +154,8 @@ const CBMType *kotlin_lookup_property_type(KotlinLSPContext *ctx, const char *cl
 /* Entry point: build registry from file defs + stdlib, then run resolution.
  * Called from cbm_extract_file() after definitions and imports have been
  * extracted. */
-void cbm_run_kotlin_lsp(CBMArena *arena, CBMFileResult *result, const char *source,
-                        int source_len, TSNode root);
+void cbm_run_kotlin_lsp(CBMArena *arena, CBMFileResult *result, const char *source, int source_len,
+                        TSNode root);
 
 /* Cross-file LSP: build a registry from project-wide defs (local + cross-file)
  * + stdlib, re-parse the source if no cached tree, walk and resolve calls.

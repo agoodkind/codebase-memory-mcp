@@ -363,8 +363,7 @@ static const char *cs_class_types[] = {"class_declaration",
                                        "type_declaration",
                                        NULL};
 static const char *cs_module_types[] = {"compilation_unit", NULL};
-static const char *cs_call_types[] = {"invocation_expression", "object_creation_expression",
-                                      NULL};
+static const char *cs_call_types[] = {"invocation_expression", "object_creation_expression", NULL};
 static const char *cs_import_types[] = {"using_directive", "namespace_use_declaration",
                                         "using_statement", "namespace_declaration", NULL};
 static const char *cs_branch_types[] = {"if_statement",    "for_statement",    "foreach_statement",
@@ -389,10 +388,9 @@ static const char *php_class_types[] = {"trait_declaration", "enum_declaration",
 static const char *php_import_types[] = {"extends", "include",         "namespace_use_declaration",
                                          "require", "use_declaration", NULL};
 static const char *php_module_types[] = {"program", NULL};
-static const char *php_call_types[] = {"member_call_expression", "scoped_call_expression",
-                                       "function_call_expression",
-                                       "object_creation_expression",
-                                       "nullsafe_member_call_expression", NULL};
+static const char *php_call_types[] = {
+    "member_call_expression",     "scoped_call_expression",          "function_call_expression",
+    "object_creation_expression", "nullsafe_member_call_expression", NULL};
 static const char *php_branch_types[] = {"if_statement",    "for_statement",    "foreach_statement",
                                          "while_statement", "switch_statement", "case_statement",
                                          "try_statement",   "catch_clause",     NULL};
@@ -418,8 +416,9 @@ static const char *scala_class_types[] = {"class_definition", "object_definition
                                           "trait_definition", "enum_definition",
                                           "type_definition",  NULL};
 static const char *scala_module_types[] = {"compilation_unit", NULL};
-static const char *scala_call_types[] = {"call_expression", "generic_function", "field_expression",
-                                         "infix_expression", "instance_expression", NULL};
+static const char *scala_call_types[] = {"call_expression",     "generic_function",
+                                         "field_expression",    "infix_expression",
+                                         "instance_expression", NULL};
 static const char *scala_import_types[] = {"import_declaration", "extends", "import",
                                            "using_directive", NULL};
 static const char *scala_branch_types[] = {
@@ -1528,8 +1527,8 @@ static const char *smithy_class_types[] = {"structure_statement", "union_stateme
 static const char *smithy_field_types[] = {"shape_member", NULL};
 static const char *smithy_import_types[] = {"use_statement", NULL};
 static const char *smithy_module_types[] = {"source_file", NULL};
-static const char *wit_func_types[] = {"func_item", "resource_method", "export_item",
-                                       "import_item", NULL};
+static const char *wit_func_types[] = {"func_item", "resource_method", "export_item", "import_item",
+                                       NULL};
 static const char *wit_class_types[] = {"record_item",   "resource_item", "enum_items",
                                         "variant_items", "flags_items",   NULL};
 static const char *wit_field_types[] = {"record_field", NULL};

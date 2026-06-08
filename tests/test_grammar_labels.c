@@ -276,8 +276,9 @@ TEST(grammar_label_goldens) {
         }
     }
     if (missing > 0) {
-        fprintf(stderr, "  [LABEL] %d grammar(s) missing a golden — copy the [LABEL-CAPTURE] lines "
-                        "into LABEL_GOLDENS\n",
+        fprintf(stderr,
+                "  [LABEL] %d grammar(s) missing a golden — copy the [LABEL-CAPTURE] lines "
+                "into LABEL_GOLDENS\n",
                 missing);
     }
     ASSERT_EQ(failures, 0);
@@ -305,9 +306,9 @@ static int non_module_defs(CBMFileResult *r) {
  * config / markup grammars (json/yaml/css/…) are intentionally excluded — a
  * lone Module node is correct for them. */
 static const char *MUST_EXTRACT_DEFS[] = {
-    "agda",    "pony",   "move",   "cobol",    "janet",   "pine",     "smali",     "verilog",
-    "vhdl",    "systemverilog", "protobuf",   "graphql", "thrift",   "capnp",     "smithy",
-    "wit",     "prisma", "cmake",  "puppet",   "tablegen", "assembly", "nasm",     NULL};
+    "agda",   "pony",          "move",     "cobol",    "janet",    "pine",  "smali",  "verilog",
+    "vhdl",   "systemverilog", "protobuf", "graphql",  "thrift",   "capnp", "smithy", "wit",
+    "prisma", "cmake",         "puppet",   "tablegen", "assembly", "nasm",  NULL};
 
 TEST(grammar_code_extracts_defs) {
     int failures = 0;
@@ -335,8 +336,9 @@ TEST(grammar_code_extracts_defs) {
         int nd = non_module_defs(r);
         cbm_free_result(r);
         if (nd < 1) {
-            fprintf(stderr, "  [CODE-DEFS] FAIL %-14s extracts 0 non-Module defs (under-extraction "
-                            "gap — only a Module node)\n",
+            fprintf(stderr,
+                    "  [CODE-DEFS] FAIL %-14s extracts 0 non-Module defs (under-extraction "
+                    "gap — only a Module node)\n",
                     name);
             failures++;
         }

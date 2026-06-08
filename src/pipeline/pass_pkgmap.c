@@ -1275,8 +1275,9 @@ static bool import_targetable_label(const char *label) {
  * File/Module-node QN (extension is stripped by fqn_module).  Returns a borrowed
  * node or NULL.  Several filename conventions are tried in turn. */
 static const cbm_gbuf_node_t *resolve_sibling_file(const cbm_pipeline_ctx_t *ctx,
-                                                    const char *source_rel, const char *source_file_qn,
-                                                    const char *module_path) {
+                                                   const char *source_rel,
+                                                   const char *source_file_qn,
+                                                   const char *module_path) {
     if (!module_path || !module_path[0]) {
         return NULL;
     }

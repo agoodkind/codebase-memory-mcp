@@ -252,7 +252,8 @@ static int check_go_class_implements(cbm_pipeline_ctx_t *ctx, const cbm_gbuf_nod
      *       DEFINES_METHOD edges from the class. */
     const cbm_gbuf_edge_t **cls_dm = NULL;
     int cls_dm_count = 0;
-    cbm_gbuf_find_edges_by_source_type(ctx->gbuf, cls->id, "DEFINES_METHOD", &cls_dm, &cls_dm_count);
+    cbm_gbuf_find_edges_by_source_type(ctx->gbuf, cls->id, "DEFINES_METHOD", &cls_dm,
+                                       &cls_dm_count);
 
     char prefix[CBM_SZ_512];
     snprintf(prefix, sizeof(prefix), "%s.", cls->qualified_name);
@@ -365,8 +366,7 @@ static void resolve_decorator(cbm_pipeline_ctx_t *ctx, const cbm_gbuf_node_t *no
     }
     cbm_resolution_t res =
         cbm_registry_resolve(ctx->registry, func_name, module_qn, imp_keys, imp_vals, imp_count);
-    if ((!res.qualified_name || res.qualified_name[0] == '\0') &&
-        !strchr(func_name, '.')) {
+    if ((!res.qualified_name || res.qualified_name[0] == '\0') && !strchr(func_name, '.')) {
         /* C# attributes are referenced by their short name (`[Log]`) but declared
          * with the conventional `Attribute` suffix (`class LogAttribute`).  Retry
          * with the suffix appended so the declaration resolves. */
@@ -432,8 +432,9 @@ static void sem_process_def_edges(cbm_pipeline_ctx_t *ctx, const CBMDefinition *
                  * (Java `implements`, C# `: IFace`, TS `implements`); a Class/
                  * Type/Enum base is plain INHERITS. */
                 const char *base_label = cbm_registry_label_of(ctx->registry, base_qn);
-                const char *edge_type =
-                    (base_label && strcmp(base_label, "Interface") == 0) ? "IMPLEMENTS" : "INHERITS";
+                const char *edge_type = (base_label && strcmp(base_label, "Interface") == 0)
+                                            ? "IMPLEMENTS"
+                                            : "INHERITS";
                 cbm_gbuf_insert_edge(ctx->gbuf, node->id, base_node->id, edge_type, "{}");
                 (*inherits_count)++;
             }

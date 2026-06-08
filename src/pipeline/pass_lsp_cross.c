@@ -399,8 +399,8 @@ void cbm_pxc_run_one(CBMLanguage lang, CBMFileResult *r, const char *source, int
                                imp_qns, imp_count, tree, &out);
         break;
     case CBM_LANG_KOTLIN:
-        cbm_run_kotlin_lsp_cross(&scratch, source, source_len, module_qn, defs, def_count, imp_names,
-                                 imp_qns, imp_count, tree, &out);
+        cbm_run_kotlin_lsp_cross(&scratch, source, source_len, module_qn, defs, def_count,
+                                 imp_names, imp_qns, imp_count, tree, &out);
         break;
     default:
         break;

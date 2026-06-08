@@ -399,9 +399,8 @@ static int process_one_infra_binding(cbm_gbuf_t *gbuf, const CBMInfraBinding *ib
          * upsert its Route node so the binding maps even when no code-side dispatch
          * call created the node first (e.g. a standalone scheduler/subscription
          * manifest). */
-        topic_route_id =
-            cbm_gbuf_upsert_node(gbuf, "Route", ib->source_name, topic_route_qn, rel_path, 0, 0,
-                                 ib->broker ? ib->broker : "async");
+        topic_route_id = cbm_gbuf_upsert_node(gbuf, "Route", ib->source_name, topic_route_qn,
+                                              rel_path, 0, 0, ib->broker ? ib->broker : "async");
         if (topic_route_id <= 0) {
             return 0;
         }

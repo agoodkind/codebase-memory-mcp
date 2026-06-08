@@ -1465,7 +1465,6 @@ static void parse_embedded_imports(CBMExtractCtx *ctx) {
     }
 }
 
-
 // --- Namespace / package declaration capture ---
 // Java/Kotlin/C#/PHP put the file's symbols inside a namespace/package whose
 // name is NOT reflected in the path-based QN scheme.  Capturing it lets the
@@ -1699,8 +1698,7 @@ static void lisp_push_clause_modules(CBMExtractCtx *ctx, TSNode clause) {
         TSNode item = ts_node_named_child(clause, j);
         const char *ik = ts_node_type(item);
         /* `[app.util :as u]` — the module is the vector's first symbol. */
-        if (strcmp(ik, "vec_lit") == 0 || strcmp(ik, "list_lit") == 0 ||
-            strcmp(ik, "list") == 0) {
+        if (strcmp(ik, "vec_lit") == 0 || strcmp(ik, "list_lit") == 0 || strcmp(ik, "list") == 0) {
             uint32_t vc = ts_node_named_child_count(item);
             if (vc > 0) {
                 lisp_push_module(ctx, ts_node_named_child(item, 0));
@@ -1807,22 +1805,23 @@ static void lisp_process_list(CBMExtractCtx *ctx, TSNode node) {
     }
 }
 
-/* Recursively walk lisp lists.  Fennel binds requires inside other forms
+/* Iteratively walk lisp lists.  Fennel binds requires inside other forms
  * (`(local util (require :util))`), so we must descend into every list, not
- * just root children. */
-static void lisp_walk(CBMExtractCtx *ctx, TSNode node) { // NOLINT(misc-no-recursion)
-    const char *nt = ts_node_type(node);
-    if (strcmp(nt, "list") == 0 || strcmp(nt, "list_lit") == 0) {
-        lisp_process_list(ctx, node);
-    }
-    uint32_t cc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < cc; i++) {
-        lisp_walk(ctx, ts_node_named_child(node, i));
-    }
-}
-
+ * just root children. Stack-based (not recursive) to avoid deep-nesting stack
+ * overflow, matching the other walkers in this file. */
 static void parse_lisp_imports(CBMExtractCtx *ctx) {
-    lisp_walk(ctx, ctx->root);
+    CBMArena *a = ctx->arena;
+    TSNodeStack stack;
+    ts_nstack_init(&stack, a, CBM_SZ_512);
+    ts_nstack_push(&stack, a, ctx->root);
+    while (stack.count > 0) {
+        TSNode node = ts_nstack_pop(&stack);
+        const char *nt = ts_node_type(node);
+        if (strcmp(nt, "list") == 0 || strcmp(nt, "list_lit") == 0) {
+            lisp_process_list(ctx, node);
+        }
+        ts_nstack_push_children(&stack, a, node);
+    }
 }
 
 // --- Starlark imports ---
@@ -2089,11 +2088,10 @@ static void push_path_import(CBMExtractCtx *ctx, TSNode node) {
 // back to text that still contains a directive keyword.
 static void push_string_descendant_import(CBMExtractCtx *ctx, TSNode node) {
     TSNode hit = node;
-    static const char *content_kinds[] = {"string_content",      "str_literal",
-                                          "slStringLiteralPart", "include_path",
-                                          "attribute_value",     "path_fragment",
-                                          "string_fragment",     "literal_content",
-                                          NULL};
+    static const char *content_kinds[] = {
+        "string_content",  "str_literal",     "slStringLiteralPart",
+        "include_path",    "attribute_value", "path_fragment",
+        "string_fragment", "literal_content", NULL};
     for (const char **k = content_kinds; *k; k++) {
         if (find_first_descendant_of(node, *k, &hit)) {
             push_path_import(ctx, hit);
@@ -2101,7 +2099,7 @@ static void push_string_descendant_import(CBMExtractCtx *ctx, TSNode node) {
         }
     }
     /* Quoted string nodes (Just/Pkl/Jsonnet variants): strip the quotes. */
-    static const char *string_kinds[] = {"string", "string_value", "string_literal",
+    static const char *string_kinds[] = {"string",        "string_value",   "string_literal",
                                          "static_string", "stringConstant", NULL};
     for (const char **k = string_kinds; *k; k++) {
         if (find_first_descendant_of(node, *k, &hit)) {
@@ -2271,9 +2269,8 @@ static void parse_jsonnet_imports(CBMExtractCtx *ctx) {
     while (stack.count > 0) {
         TSNode node = ts_nstack_pop(&stack);
         const char *k = ts_node_type(node);
-        if (ts_node_is_named(node) &&
-            (strcmp(k, "import") == 0 || strcmp(k, "importstr") == 0 ||
-             strcmp(k, "importbin") == 0)) {
+        if (ts_node_is_named(node) && (strcmp(k, "import") == 0 || strcmp(k, "importstr") == 0 ||
+                                       strcmp(k, "importbin") == 0)) {
             push_string_descendant_import(ctx, node);
         }
         ts_nstack_push_children(&stack, ctx->arena, node);

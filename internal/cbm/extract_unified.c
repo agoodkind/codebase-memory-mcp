@@ -775,7 +775,8 @@ static bool is_export_of_declaration(TSNode node) {
     for (uint32_t i = 0; i < n; i++) {
         const char *ck = ts_node_type(ts_node_child(node, i));
         if (strcmp(ck, "function_declaration") == 0 || strcmp(ck, "class_declaration") == 0 ||
-            strcmp(ck, "lexical_declaration") == 0 || strcmp(ck, "abstract_class_declaration") == 0 ||
+            strcmp(ck, "lexical_declaration") == 0 ||
+            strcmp(ck, "abstract_class_declaration") == 0 ||
             strcmp(ck, "interface_declaration") == 0 || strcmp(ck, "enum_declaration") == 0 ||
             strcmp(ck, "type_alias_declaration") == 0 || strcmp(ck, "variable_declaration") == 0 ||
             strcmp(ck, "generator_function_declaration") == 0) {

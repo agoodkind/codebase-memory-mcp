@@ -1941,8 +1941,8 @@ static void resolve_def_decorators(resolve_ctx_t *rc, resolve_worker_state_t *ws
              * and the edge target IDs are remapped consistently. */
             char syn_qn[CBM_SZ_512];
             snprintf(syn_qn, sizeof(syn_qn), "<decorator:%s>", fn);
-            dn_id = cbm_gbuf_upsert_node(ws->local_edge_buf, "Decorator", fn, syn_qn, "", 0, 0,
-                                         "{}");
+            dn_id =
+                cbm_gbuf_upsert_node(ws->local_edge_buf, "Decorator", fn, syn_qn, "", 0, 0, "{}");
         }
         if (dn_id != 0 && node->id != dn_id) {
             char dp[CBM_SZ_256];

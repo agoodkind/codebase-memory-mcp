@@ -1607,8 +1607,8 @@ static const char **extract_csharp_base_list(CBMArena *a, TSNode node, const cha
 }
 
 // Append a base name (generic args stripped) to out[] if non-empty.
-static void push_base_text(CBMArena *a, TSNode n, const char *source, const char **out,
-                           int out_cap, int *count) {
+static void push_base_text(CBMArena *a, TSNode n, const char *source, const char **out, int out_cap,
+                           int *count) {
     if (*count >= out_cap) {
         return;
     }
@@ -2977,8 +2977,7 @@ static void extract_class_def(CBMExtractCtx *ctx, TSNode node, const CBMLangSpec
             if (!ts_node_is_null(inner) && strcmp(ts_node_type(inner), "binary_expression") == 0 &&
                 ts_node_named_child_count(inner) > 0) {
                 name_node = ts_node_named_child(inner, 0); /* LHS of `<:` */
-            } else if (!ts_node_is_null(inner) &&
-                       strcmp(ts_node_type(inner), "identifier") == 0) {
+            } else if (!ts_node_is_null(inner) && strcmp(ts_node_type(inner), "identifier") == 0) {
                 name_node = inner;
             } else {
                 name_node = cbm_find_child_by_kind(th, "identifier");
@@ -3078,8 +3077,8 @@ static void extract_class_def(CBMExtractCtx *ctx, TSNode node, const CBMLangSpec
             }
             break;
         case CBM_LANG_GLEAM: // type_definition > type_name > type_identifier
-            name_node = find_first_descendant_by_kind(node, "type_identifier",
-                                                      CBM_DESCENDANT_MAX_DEPTH);
+            name_node =
+                find_first_descendant_by_kind(node, "type_identifier", CBM_DESCENDANT_MAX_DEPTH);
             break;
         case CBM_LANG_RESCRIPT: { // type_declaration > type_binding(name=type_identifier)
             TSNode binding = cbm_find_child_by_kind(node, "type_binding");
@@ -3092,8 +3091,7 @@ static void extract_class_def(CBMExtractCtx *ctx, TSNode node, const CBMLangSpec
             break;
         }
         case CBM_LANG_FSHARP: { // type_definition > *_type_defn > type_name > identifier
-            TSNode tn = find_first_descendant_by_kind(node, "type_name",
-                                                      CBM_DESCENDANT_MAX_DEPTH);
+            TSNode tn = find_first_descendant_by_kind(node, "type_name", CBM_DESCENDANT_MAX_DEPTH);
             if (!ts_node_is_null(tn)) {
                 name_node = ts_node_child_by_field_name(tn, TS_FIELD("type_name"));
                 if (ts_node_is_null(name_node)) {
@@ -3130,8 +3128,7 @@ static void extract_class_def(CBMExtractCtx *ctx, TSNode node, const CBMLangSpec
         }
         case CBM_LANG_PASCAL: { // declClass is nested; name lives on the parent declType
             TSNode parent = ts_node_parent(node);
-            if (!ts_node_is_null(parent) &&
-                strcmp(ts_node_type(parent), "declType") == 0) {
+            if (!ts_node_is_null(parent) && strcmp(ts_node_type(parent), "declType") == 0) {
                 name_node = ts_node_child_by_field_name(parent, TS_FIELD("name"));
             }
             break;
@@ -3175,9 +3172,8 @@ static void extract_class_def(CBMExtractCtx *ctx, TSNode node, const CBMLangSpec
     // registry only indexes Function/Method/Class/Interface labels), letting
     // `inherit Base` resolve into an INHERITS edge.
     if (ctx->language == CBM_LANG_FSHARP && strcmp(label, "Type") == 0) {
-        if (!ts_node_is_null(
-                find_first_descendant_by_kind(node, "primary_constr_args",
-                                              CBM_DESCENDANT_MAX_DEPTH)) ||
+        if (!ts_node_is_null(find_first_descendant_by_kind(node, "primary_constr_args",
+                                                           CBM_DESCENDANT_MAX_DEPTH)) ||
             !ts_node_is_null(find_first_descendant_by_kind(node, "class_inherits_decl",
                                                            CBM_DESCENDANT_MAX_DEPTH))) {
             label = "Class";
@@ -5182,8 +5178,9 @@ static void extract_lisp_def(CBMExtractCtx *ctx, TSNode node) {
  * `ERROR` node, so the outer class is never recognized as a `class_declaration`
  * and disappears from the graph:
  *
- *   class MyClass { companion object : Factory<MyClass>() { ... } }   // anon companion w/ delegation
- *   class Tree    { inner class Node : BaseNode() { ... } }            // inner + delegation
+ *   class MyClass { companion object : Factory<MyClass>() { ... } }   // anon companion w/
+ * delegation class Tree    { inner class Node : BaseNode() { ... } }            // inner +
+ * delegation
  *
  * Inside the ERROR node the tokens are still present as a flat child list:
  *   `class`/`object` keyword token → simple_identifier/type_identifier (name)
@@ -5243,16 +5240,14 @@ static void recover_kotlin_error_classes(CBMExtractCtx *ctx, TSNode err_node) {
             /* delegation_specifier → user_type (directly or under
              * constructor_invocation) → type_identifier; strip generic args. */
             TSNode ut = ts_node_named_child(sib, 0);
-            if (!ts_node_is_null(ut) &&
-                strcmp(ts_node_type(ut), "constructor_invocation") == 0) {
+            if (!ts_node_is_null(ut) && strcmp(ts_node_type(ut), "constructor_invocation") == 0) {
                 ut = ts_node_named_child(ut, 0);
             }
             if (ts_node_is_null(ut)) {
                 continue;
             }
             TSNode ti = ut;
-            if (strcmp(ts_node_type(ut), "user_type") == 0 &&
-                ts_node_named_child_count(ut) > 0) {
+            if (strcmp(ts_node_type(ut), "user_type") == 0 && ts_node_named_child_count(ut) > 0) {
                 ti = ts_node_named_child(ut, 0);
             }
             push_base_text(a, ti, ctx->source, bases, MAX_BASES_MINUS_1, &bcount);
@@ -5268,8 +5263,8 @@ static void recover_kotlin_error_classes(CBMExtractCtx *ctx, TSNode err_node) {
         def.end_line = ts_node_end_point(err_node).row + TS_LINE_OFFSET;
         def.is_exported = cbm_is_exported(name, ctx->language);
         if (bcount > 0) {
-            const char **result = (const char **)cbm_arena_alloc(
-                a, (size_t)(bcount + NULL_TERM) * sizeof(const char *));
+            const char **result = (const char **)cbm_arena_alloc(a, (size_t)(bcount + NULL_TERM) *
+                                                                        sizeof(const char *));
             if (result) {
                 for (int k = 0; k < bcount; k++) {
                     result[k] = bases[k];

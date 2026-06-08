@@ -4113,7 +4113,8 @@ static void kt_register_cross_def(CBMTypeRegistry *reg, CBMArena *arena, const C
                     n++;
                 }
             }
-            const char **emb = (const char **)cbm_arena_alloc(arena, (size_t)(n + 1) * sizeof(*emb));
+            const char **emb =
+                (const char **)cbm_arena_alloc(arena, (size_t)(n + 1) * sizeof(*emb));
             int idx = 0;
             const char *start = d->embedded_types;
             while (*start) {

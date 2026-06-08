@@ -204,8 +204,8 @@ static TSNode resolve_write_lhs_node(TSNode node) {
         return left;
     }
     const char *nk = ts_node_type(node);
-    if (strcmp(nk, "postfix_unary_expression") == 0 ||
-        strcmp(nk, "prefix_unary_expression") == 0 || strcmp(nk, "update_expression") == 0) {
+    if (strcmp(nk, "postfix_unary_expression") == 0 || strcmp(nk, "prefix_unary_expression") == 0 ||
+        strcmp(nk, "update_expression") == 0) {
         // Only ++/-- mutate their operand. Other unary postfix/prefix forms
         // (C# null-forgiving `x!`, address-of `&x`, deref `*x`, logical `!x`)
         // READ the operand — never treat them as writes.
@@ -230,9 +230,10 @@ static TSNode resolve_write_lhs_node(TSNode node) {
             TSNode c = ts_node_named_child(node, i);
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "identifier") == 0 || strcmp(ck, "simple_identifier") == 0 ||
-                strcmp(ck, "member_access_expression") == 0 || strcmp(ck, "field_expression") == 0 ||
-                strcmp(ck, "field_access") == 0 || strcmp(ck, "selector_expression") == 0 ||
-                strcmp(ck, "subscript_expression") == 0 || strcmp(ck, "index_expression") == 0) {
+                strcmp(ck, "member_access_expression") == 0 ||
+                strcmp(ck, "field_expression") == 0 || strcmp(ck, "field_access") == 0 ||
+                strcmp(ck, "selector_expression") == 0 || strcmp(ck, "subscript_expression") == 0 ||
+                strcmp(ck, "index_expression") == 0) {
                 return c;
             }
         }

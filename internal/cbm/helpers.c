@@ -131,10 +131,10 @@ static const char *java_keywords[] = {
  * (`data`, `open`, `sealed`, `suspend`, …) are context-sensitive and usable as
  * identifiers, so they are intentionally omitted. */
 static const char *kotlin_keywords[] = {
-    "as",    "break",  "class", "continue",  "do",     "else",  "false", "for",
-    "fun",   "if",     "in",    "interface", "is",     "null",  "object", "package",
-    "return", "super", "this",  "throw",     "true",   "try",   "typealias", "typeof",
-    "val",   "var",    "when",  "while",     NULL};
+    "as",     "break", "class", "continue",  "do",   "else", "false",     "for",
+    "fun",    "if",    "in",    "interface", "is",   "null", "object",    "package",
+    "return", "super", "this",  "throw",     "true", "try",  "typealias", "typeof",
+    "val",    "var",   "when",  "while",     NULL};
 
 static const char *generic_keywords[] = {
     "true",     "false",     "null",      "nil",    "None",   "undefined", "void",    "if",

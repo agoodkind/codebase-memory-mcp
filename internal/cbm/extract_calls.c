@@ -885,9 +885,8 @@ static bool is_url_or_topic_keyword(const char *key) {
 // arg (e.g. Go `SendMessageInput{QueueUrl: ...}`, `PublishInput{TopicArn: ...}`).
 // Case-insensitive so QueueUrl/QueueURL/queue_url all match.
 static bool is_queue_topic_field(const char *key) {
-    static const char *fields[] = {"QueueUrl",  "QueueURL", "TopicArn",   "TopicARN",
-                                   "QueueName", "TopicName", "QueueArn",   "QueueARN",
-                                   "Destination", NULL};
+    static const char *fields[] = {"QueueUrl",  "QueueURL", "TopicArn", "TopicARN",    "QueueName",
+                                   "TopicName", "QueueArn", "QueueARN", "Destination", NULL};
     if (!key || !key[0]) {
         return false;
     }
@@ -1080,8 +1079,7 @@ static const char *extract_handler_arg(CBMExtractCtx *ctx, TSNode args) {
     for (uint32_t ai = HANDLER_START_IDX; ai < nc && ai < MAX_HANDLER_SCAN; ai++) {
         TSNode arg2 = ts_node_named_child(args, ai);
         /* PHP wraps each argument in an `argument` node — unwrap to the value. */
-        if (strcmp(ts_node_type(arg2), "argument") == 0 &&
-            ts_node_named_child_count(arg2) > 0) {
+        if (strcmp(ts_node_type(arg2), "argument") == 0 && ts_node_named_child_count(arg2) > 0) {
             arg2 = ts_node_named_child(arg2, 0);
         }
         const char *ak2 = ts_node_type(arg2);
@@ -1093,8 +1091,8 @@ static const char *extract_handler_arg(CBMExtractCtx *ctx, TSNode args) {
             return cbm_node_text(ctx->arena, arg2, ctx->source);
         }
         if (is_string_like(ak2)) {
-            const char *h = normalize_string_handler(ctx->arena,
-                                                     cbm_node_text(ctx->arena, arg2, ctx->source));
+            const char *h =
+                normalize_string_handler(ctx->arena, cbm_node_text(ctx->arena, arg2, ctx->source));
             if (h && h[0]) {
                 return h;
             }
@@ -1138,11 +1136,6 @@ void handle_calls(CBMExtractCtx *ctx, TSNode node, const CBMLangSpec *spec, Walk
             call.start_line = (int)ts_node_start_point(node).row + TS_LINE_OFFSET;
 
             TSNode args = ts_node_child_by_field_name(node, TS_FIELD("arguments"));
-            if (getenv("CBM_DBG_ARGS") && callee && (strstr(callee,"get")||strstr(callee,"Get")||strstr(callee,"client")||strstr(callee,"Route"))) {
-                fprintf(stderr, "[DBGARGS] callee=%s node=%s args_null=%d", callee, ts_node_type(node), ts_node_is_null(args));
-                if (!ts_node_is_null(args)) { uint32_t n=ts_node_named_child_count(args); fprintf(stderr, " nargs=%u:", n); for(uint32_t i=0;i<n&&i<4;i++) fprintf(stderr," [%s]",ts_node_type(ts_node_named_child(args,i))); }
-                fprintf(stderr, "\n");
-            }
             if (!ts_node_is_null(args)) {
                 call.first_string_arg = extract_url_or_topic_arg(ctx, args);
                 if (call.first_string_arg && call.first_string_arg[0] == '/') {

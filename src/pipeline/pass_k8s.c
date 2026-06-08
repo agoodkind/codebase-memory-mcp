@@ -275,11 +275,9 @@ static void k8s_scan_labels(const char *source, k8s_record_t *rec) {
             char val[K8S_LABEL_LEN];
             if (k8s_split_kv(trimmed, key, sizeof(key), val, sizeof(val))) {
                 /* Build the current dotted path for context decisions. */
-                bool under_selector =
-                    (depth >= 1 && strcmp(stack[depth - 1].key, "selector") == 0);
+                bool under_selector = (depth >= 1 && strcmp(stack[depth - 1].key, "selector") == 0);
                 bool under_labels = (depth >= 1 && strcmp(stack[depth - 1].key, "labels") == 0);
-                bool under_metadata =
-                    (depth >= 1 && strcmp(stack[depth - 1].key, "metadata") == 0);
+                bool under_metadata = (depth >= 1 && strcmp(stack[depth - 1].key, "metadata") == 0);
 
                 if (val[0] == '\0') {
                     /* Block-opening key: push onto the path stack. */
@@ -586,9 +584,9 @@ static int parse_requirements_deps(cbm_pipeline_ctx_t *ctx, const cbm_gbuf_node_
         if (t[0] && t[0] != '#' && t[0] != '-' && strstr(t, "://") == NULL) {
             char name[CBM_SZ_256];
             size_t n = 0;
-            while (t[n] && t[n] != '=' && t[n] != '<' && t[n] != '>' && t[n] != '!' && t[n] != '~' &&
-                   t[n] != '[' && t[n] != ';' && t[n] != ' ' && t[n] != '\t' && t[n] != '\r' &&
-                   n + 1 < sizeof(name)) {
+            while (t[n] && t[n] != '=' && t[n] != '<' && t[n] != '>' && t[n] != '!' &&
+                   t[n] != '~' && t[n] != '[' && t[n] != ';' && t[n] != ' ' && t[n] != '\t' &&
+                   t[n] != '\r' && n + 1 < sizeof(name)) {
                 name[n] = t[n];
                 n++;
             }
@@ -675,8 +673,7 @@ int cbm_pipeline_pass_k8s(cbm_pipeline_ctx_t *ctx, const cbm_file_info_t *files,
                      * pass and contain no "Resource" definitions.  Pass the already-
                      * read source buffer so handle_k8s_manifest does not re-read. */
                     (void)cached; /* cached YAML result intentionally discarded */
-                    k8s_record_t *rec =
-                        (recs.count < recs.cap) ? &recs.items[recs.count] : NULL;
+                    k8s_record_t *rec = (recs.count < recs.cap) ? &recs.items[recs.count] : NULL;
                     handle_k8s_manifest(ctx, path, rel, source, src_len, rec);
                     if (rec && rec->node_id > 0) {
                         recs.count++;
