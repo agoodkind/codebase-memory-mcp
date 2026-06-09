@@ -11,6 +11,7 @@
 #include "pipeline/pipeline.h"
 #include "pipeline/pipeline_internal.h"
 #include "store/store.h"
+#include <yyjson/yyjson.h> // properties-JSON validity (oversized-props regression)
 
 #include <stdlib.h>
 #include <string.h>
@@ -459,6 +460,83 @@ TEST(pipeline_definitions_properties) {
         /* All functions should have file_path set */
         ASSERT_NOT_NULL(funcs[i].file_path);
     }
+
+    cbm_store_free_nodes(funcs, func_count);
+    cbm_store_close(s);
+    cbm_pipeline_free(p);
+    teardown_test_repo();
+    PASS();
+}
+
+/* Node properties must remain VALID JSON even when a definition's serialized
+ * properties exceed the fixed 2 KB build buffer. Found on the Linux kernel:
+ * 135 nodes (50-param functions with struct-typed signatures) had properties
+ * truncated mid-string at 2047 bytes — malformed JSON that aborts EVERY
+ * json_extract()-based consumer (arch_entry_points, partial indexes, user
+ * Cypher on properties). Oversized optional fields must be dropped whole,
+ * never cut mid-value. */
+TEST(pipeline_def_props_valid_json_when_oversized) {
+    if (setup_test_repo() != 0) {
+        FAIL("failed to create temp dir");
+    }
+
+    /* Sweep of C functions with growing signatures. The corruption fires only
+     * when the serialized position lands in a narrow window just under the
+     * buffer margin as the param_types array starts — the array is then cut
+     * mid-item (`"param_types":["enum`), exactly the kernel failure shape.
+     * Sweeping 10..69 params deterministically hits the window (pre-fix:
+     * sweep_fn_30 -> 2047-byte malformed properties). */
+    char path[512];
+    snprintf(path, sizeof(path), "%s/huge.c", g_tmpdir);
+    FILE *f = fopen(path, "w");
+    if (!f) {
+        teardown_test_repo();
+        FAIL("failed to write huge.c");
+    }
+    for (int n = 10; n < 70; n++) {
+        fprintf(f, "int sweep_fn_%02d(", n);
+        for (int i = 0; i < n; i++) {
+            fprintf(f, "%sstruct long_struct_type_name_padding_padding_%02d *par_%02d",
+                    i ? ", " : "", i, i);
+        }
+        fprintf(f, ") { return 0; }\n");
+    }
+    fclose(f);
+
+    char db_path[512];
+    snprintf(db_path, sizeof(db_path), "%s/test_huge_props.db", g_tmpdir);
+    cbm_pipeline_t *p = cbm_pipeline_new(g_tmpdir, db_path, CBM_MODE_FULL);
+    ASSERT_NOT_NULL(p);
+    ASSERT_EQ(cbm_pipeline_run(p), 0);
+
+    cbm_store_t *s = cbm_store_open_path(db_path);
+    ASSERT_NOT_NULL(s);
+    const char *project = cbm_pipeline_project_name(p);
+
+    cbm_node_t *funcs = NULL;
+    int func_count = 0;
+    ASSERT_EQ(cbm_store_find_nodes_by_label(s, project, "Function", &funcs, &func_count),
+              CBM_STORE_OK);
+    int checked = 0;
+    for (int i = 0; i < func_count; i++) {
+        if (strncmp(funcs[i].name, "sweep_fn_", 9) != 0) {
+            continue;
+        }
+        ASSERT_NOT_NULL(funcs[i].properties_json);
+        yyjson_doc *doc =
+            yyjson_read(funcs[i].properties_json, strlen(funcs[i].properties_json), 0);
+        if (!doc) {
+            printf("    INVALID properties JSON for %s (%zu bytes): ...%s\n", funcs[i].name,
+                   strlen(funcs[i].properties_json),
+                   funcs[i].properties_json + (strlen(funcs[i].properties_json) > 60
+                                                   ? strlen(funcs[i].properties_json) - 60
+                                                   : 0));
+        }
+        ASSERT_NOT_NULL(doc); /* valid JSON for EVERY sweep size */
+        yyjson_doc_free(doc);
+        checked++;
+    }
+    ASSERT_EQ(checked, 60); /* all sweep functions present */
 
     cbm_store_free_nodes(funcs, func_count);
     cbm_store_close(s);
@@ -5531,6 +5609,7 @@ SUITE(pipeline) {
     RUN_TEST(pipeline_definitions_function_nodes);
     RUN_TEST(pipeline_definitions_defines_edges);
     RUN_TEST(pipeline_definitions_properties);
+    RUN_TEST(pipeline_def_props_valid_json_when_oversized);
     /* Complexity propagation pass (Tier B) */
     RUN_TEST(pipeline_complexity_transitive_loop_depth);
     /* Calls pass */
