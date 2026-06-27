@@ -1809,6 +1809,9 @@ static void resolve_file_calls(resolve_ctx_t *rc, resolve_worker_state_t *ws, CB
              * the registry resolver, matching prior single-lookup semantics. */
             lsp_target =
                 cbm_pipeline_lsp_target_node(rc->main_gbuf, rc->project_name, lsp->callee_qn);
+            fprintf(stderr, "LSPDIAGT callee_qn=%s resolved=%d strat=%s conf=%.2f\n",
+                    lsp->callee_qn ? lsp->callee_qn : "-", lsp_target ? 1 : 0,
+                    lsp->strategy ? lsp->strategy : "-", lsp->confidence);
             if (lsp_target) {
                 res.qualified_name = lsp_target->qualified_name;
                 res.strategy = lsp->strategy ? lsp->strategy : "lsp_override";
