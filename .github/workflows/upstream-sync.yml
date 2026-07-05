@@ -41,8 +41,8 @@ jobs:
         run: |
           set -euo pipefail
 
+          git fetch origin main:refs/remotes/origin/main
           git checkout -B sync/upstream-latest origin/main
-
           if [[ -z "$(git rev-list origin/main..upstream/main)" ]]; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No new upstream commits."
