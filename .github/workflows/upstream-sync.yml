@@ -1,0 +1,216 @@
+name: Auto-Sync Upstream
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Add Upstream Remote
+        run: git remote add upstream https://github.com/DeusData/codebase-memory-mcp.git
+
+      - name: Fetch Upstream
+        run: git fetch upstream
+
+      - name: Create or Update Sync Branch
+        id: sync_branch
+        run: |
+          set -euo pipefail
+
+          git fetch origin main:refs/remotes/origin/main
+          git checkout -B sync/upstream-latest origin/main
+          if [[ -z "$(git rev-list origin/main..upstream/main)" ]]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No new upstream commits."
+            exit 0
+          fi
+
+          git merge -X ours --no-edit -m "chore: sync with upstream/main [skip ci]" upstream/main
+
+          SEAM_PATHS=(
+            "src/discover/discover.c"
+            "src/discover/discover.h"
+            "src/pipeline/pipeline.c"
+            "src/pipeline/pipeline.h"
+            "src/mcp/mcp.c"
+          )
+
+          if [[ -n "$(git diff --name-only origin/main..HEAD -- "${SEAM_PATHS[@]}")" ]]; then
+            echo "seam_touched=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "seam_touched=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git push -f origin sync/upstream-latest
+
+      - name: Create or Reuse Pull Request to Main
+        id: pull_request
+        if: steps.sync_branch.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          pr_body="Automated PR to synchronize the fork with DeusData/codebase-memory-mcp upstream. The merge uses -X ours, so fork changes win on conflicting hunks and the sync branch stays buildable. PR CI plus the dispatched Dry Run status gate this update."
+          if [[ "${{ steps.sync_branch.outputs.seam_touched }}" == "true" ]]; then
+            pr_body="${pr_body}"$'\n\n'"WARNING: upstream touched one or more discovery seam files in this range. Review this PR manually because it may collide with the fork's additive content-parity patch."
+          fi
+
+          existing_pr_number=$(gh api \
+            --method GET \
+            "/repos/${GITHUB_REPOSITORY}/pulls" \
+            -f base=main \
+            -f head="${GITHUB_REPOSITORY_OWNER}:sync/upstream-latest" \
+            -f state=open \
+            --jq '.[0].number // empty')
+
+          if [[ -n "$existing_pr_number" ]]; then
+            pr_url=$(gh pr view "$existing_pr_number" --json url --jq '.url')
+            gh pr edit "$existing_pr_number" \
+              --title "Auto-Sync: Upstream Repository" \
+              --body "$pr_body"
+          else
+            pr_url=$(gh pr create \
+              --base main \
+              --head sync/upstream-latest \
+              --title "Auto-Sync: Upstream Repository" \
+              --body "$pr_body")
+          fi
+
+          echo "pr_url=${pr_url}" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch Dry Run Validation
+        if: steps.sync_branch.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_HEAD_SHA: ${{ steps.sync_branch.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+
+          post_status() {
+            local workflow_name="$1"
+            local state="$2"
+            local description="$3"
+            local target_url="$4"
+
+            gh api \
+              --method POST \
+              "/repos/${GITHUB_REPOSITORY}/statuses/${SYNC_HEAD_SHA}" \
+              -f state="$state" \
+              -f context="sync-dispatch/${workflow_name}" \
+              -f target_url="$target_url" \
+              -f description="$description" >/dev/null
+          }
+
+          find_run_id() {
+            gh api \
+              --method GET \
+              "/repos/${GITHUB_REPOSITORY}/actions/workflows/dry-run.yml/runs" \
+              -f branch=sync/upstream-latest \
+              -f event=workflow_dispatch \
+              -f per_page=20 \
+              --jq 'first(.workflow_runs[] | select(.head_sha == env.SYNC_HEAD_SHA) | .id) // ""'
+          }
+
+          wait_for_run_id() {
+            local attempt_count
+            local run_id
+
+            for attempt_count in {1..30}; do
+              run_id=$(find_run_id)
+              if [[ -n "$run_id" ]]; then
+                echo "$run_id"
+                return 0
+              fi
+
+              echo "Waiting for Dry Run to be created (${attempt_count}/30)." >&2
+              sleep 5
+            done
+
+            echo "Timed out waiting for Dry Run to be created." >&2
+            return 1
+          }
+
+          wait_for_run_completion() {
+            local run_id="$1"
+            local attempt_count
+            local run_conclusion
+            local run_status
+            local run_url
+            local -a run_fields
+
+            for attempt_count in {1..240}; do
+              mapfile -t run_fields < <(gh run view "$run_id" \
+                --repo "$GITHUB_REPOSITORY" \
+                --json status,conclusion,url \
+                --jq '.status, (.conclusion // ""), .url')
+              run_status="${run_fields[0]}"
+              run_conclusion="${run_fields[1]}"
+              run_url="${run_fields[2]}"
+
+              if [[ "$run_status" == "completed" ]]; then
+                if [[ "$run_conclusion" == "success" ]]; then
+                  post_status "Dry Run" "success" "Dry Run passed" "$run_url"
+                  return 0
+                fi
+
+                post_status "Dry Run" "failure" "Dry Run completed with ${run_conclusion:-unknown}" "$run_url"
+                return 1
+              fi
+
+              post_status "Dry Run" "pending" "Dry Run is ${run_status}" "$run_url"
+              echo "Waiting for Dry Run ${run_id} to complete: ${run_status} (${attempt_count}/240)."
+              sleep 30
+            done
+
+            run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${run_id}"
+            post_status "Dry Run" "failure" "Dry Run timed out" "$run_url"
+            echo "Timed out waiting for Dry Run ${run_id}." >&2
+            return 1
+          }
+
+          post_status "Dry Run" "pending" "Dry Run is queued" "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/dry-run.yml"
+          gh workflow run dry-run.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref sync/upstream-latest \
+            -f skip_lint=false \
+            -f skip_tests=false \
+            -f skip_builds=false \
+            -f soak_level=none
+
+          dry_run_id=$(wait_for_run_id)
+          wait_for_run_completion "$dry_run_id"
+
+      - name: Enable Auto-Merge
+        if: steps.sync_branch.outputs.has_changes == 'true' && steps.sync_branch.outputs.seam_touched == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ steps.pull_request.outputs.pr_url }}
+        run: |
+          gh pr merge --auto --merge "$PR_URL"
