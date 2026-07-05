@@ -59,7 +59,7 @@ jobs:
             "src/mcp/mcp.c"
           )
 
-          if [[ -n "$(git log --format=%H origin/main..upstream/main -- "${SEAM_PATHS[@]}")" ]]; then
+          if [[ -n "$(git diff --name-only origin/main..HEAD -- "${SEAM_PATHS[@]}")" ]]; then
             echo "seam_touched=true" >> "$GITHUB_OUTPUT"
           else
             echo "seam_touched=false" >> "$GITHUB_OUTPUT"
