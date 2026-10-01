@@ -24,6 +24,7 @@
 #include "cbm.h"
 #include "graph_buffer/graph_buffer.h"
 #include "foundation/constants.h"
+#include "foundation/hash_table.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -129,6 +130,92 @@ static inline const CBMResolvedCall *cbm_pipeline_find_lsp_resolution(
         }
     }
     return best;
+}
+
+static inline void cbm_pipeline_lsp_index_free_caller(const char *key, void *value,
+                                                      void *userdata) {
+    (void)key;
+    (void)userdata;
+    cbm_ht_free(value);
+}
+
+/* All keys and resolved-call pointers borrow the completed extraction result. */
+static inline void cbm_pipeline_lsp_index_free(CBMHashTable *index) {
+    cbm_ht_foreach(index, cbm_pipeline_lsp_index_free_caller, NULL);
+    cbm_ht_free(index);
+}
+
+static inline bool cbm_pipeline_lsp_index_add(CBMHashTable *index, const char *name,
+                                              const CBMResolvedCall *resolved) {
+    CBMHashTable *callees = cbm_ht_get(index, resolved->caller_qn);
+    if (!callees) {
+        callees = cbm_ht_create(0);
+        if (!callees) {
+            return false;
+        }
+        cbm_ht_set(index, resolved->caller_qn, callees);
+        if (cbm_ht_get(index, resolved->caller_qn) != callees) {
+            cbm_ht_free(callees);
+            return false;
+        }
+    }
+    const CBMResolvedCall *existing = cbm_ht_get(callees, name);
+    if (existing && !(resolved->confidence > existing->confidence)) {
+        return true;
+    }
+    const char *key = existing ? cbm_ht_get_key(callees, name) : name;
+    cbm_ht_set(callees, key, (void *)resolved);
+    return cbm_ht_get(callees, name) == resolved;
+}
+
+/* A failed construction uses the original matcher for every lookup. */
+static inline CBMHashTable *cbm_pipeline_lsp_index_build(const CBMResolvedCallArray *arr) {
+    if (!arr || arr->count == 0) {
+        return NULL;
+    }
+    CBMHashTable *index = cbm_ht_create(0);
+    if (!index) {
+        return NULL;
+    }
+    for (int i = 0; i < arr->count; i++) {
+        const CBMResolvedCall *resolved = &arr->items[i];
+        if (!resolved->caller_qn || !resolved->callee_qn ||
+            resolved->confidence < CBM_LSP_CONFIDENCE_FLOOR) {
+            continue;
+        }
+        if (!cbm_pipeline_lsp_index_add(index, cbm_lsp_bare_segment(resolved->callee_qn),
+                                        resolved)) {
+            cbm_pipeline_lsp_index_free(index);
+            return NULL;
+        }
+        if (resolved->reason && resolved->strategy &&
+            (strcmp(resolved->strategy, "lsp_func_ptr") == 0 ||
+             strcmp(resolved->strategy, "lsp_dll_resolve") == 0 ||
+             strcmp(resolved->strategy, "lsp_method_ref_ctor") == 0 ||
+             strcmp(resolved->strategy, "lsp_method_ref_ctor_synth") == 0 ||
+             strcmp(resolved->strategy, "lsp_dict_dispatch") == 0 ||
+             strcmp(resolved->strategy, "lsp_destructor") == 0 ||
+             strcmp(resolved->strategy, "php_method_dynamic") == 0)) {
+            if (!cbm_pipeline_lsp_index_add(index, cbm_lsp_bare_segment(resolved->reason),
+                                            resolved)) {
+                cbm_pipeline_lsp_index_free(index);
+                return NULL;
+            }
+        }
+    }
+    return index;
+}
+
+static inline const CBMResolvedCall *cbm_pipeline_find_lsp_resolution_indexed(
+    const CBMResolvedCallArray *arr, const CBMHashTable *index, const CBMCall *call) {
+    if (!index) {
+        return cbm_pipeline_find_lsp_resolution(arr, call);
+    }
+    if (!arr || arr->count == 0 || !call || !call->enclosing_func_qn || !call->callee_name) {
+        return NULL;
+    }
+    const CBMHashTable *callees = cbm_ht_get(index, call->enclosing_func_qn);
+    return cbm_ht_get(callees, cbm_lsp_bare_segment(call->callee_name));
 }
 
 /* Resolve an LSP-emitted callee_qn to a graph-buffer node.
