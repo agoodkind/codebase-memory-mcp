@@ -418,16 +418,17 @@ static const cbm_gbuf_node_t *calls_find_source(cbm_pipeline_ctx_t *ctx, const c
 
 /* Resolve one call and emit the appropriate edge. Returns 1 if resolved, 0 if not. */
 static int resolve_single_call(cbm_pipeline_ctx_t *ctx, CBMCall *call,
-                               const CBMResolvedCallArray *lsp_calls, const char *rel,
-                               const char *module_qn, const char **imp_keys, const char **imp_vals,
-                               int imp_count, CBMLanguage lang) {
+                               const CBMResolvedCallArray *lsp_calls, const CBMHashTable *lsp_index,
+                               const char *rel, const char *module_qn, const char **imp_keys,
+                               const char **imp_vals, int imp_count, CBMLanguage lang) {
     const cbm_gbuf_node_t *source_node = calls_find_source(ctx, rel, call->enclosing_func_qn);
     if (!source_node) {
         return 0;
     }
 
     /* LSP-resolved calls take precedence over registry-textual matching. */
-    const CBMResolvedCall *lsp = cbm_pipeline_find_lsp_resolution(lsp_calls, call);
+    const CBMResolvedCall *lsp =
+        cbm_pipeline_find_lsp_resolution_indexed(lsp_calls, lsp_index, call);
     if (lsp) {
         const cbm_gbuf_node_t *target_node =
             cbm_pipeline_lsp_target_node(ctx->gbuf, ctx->project_name, lsp->callee_qn);
@@ -600,6 +601,7 @@ int cbm_pipeline_pass_calls(cbm_pipeline_ctx_t *ctx, const cbm_file_info_t *file
         char *module_qn = cbm_pipeline_fqn_module_dir(ctx->project_name, rel,
                                                       pc_module_is_dir(files[i].language));
 
+        CBMHashTable *lsp_index = cbm_pipeline_lsp_index_build(&result->resolved_calls);
         /* Resolve each call */
         for (int c = 0; c < result->calls.count; c++) {
             CBMCall *call = &result->calls.items[c];
@@ -607,14 +609,15 @@ int cbm_pipeline_pass_calls(cbm_pipeline_ctx_t *ctx, const cbm_file_info_t *file
                 continue;
             }
             total_calls++;
-            if (resolve_single_call(ctx, call, &result->resolved_calls, rel, module_qn, imp_keys,
-                                    imp_vals, imp_count, files[i].language)) {
+            if (resolve_single_call(ctx, call, &result->resolved_calls, lsp_index, rel, module_qn,
+                                    imp_keys, imp_vals, imp_count, files[i].language)) {
                 resolved++;
             } else {
                 unresolved++;
             }
         }
 
+        cbm_pipeline_lsp_index_free(lsp_index);
         free(module_qn);
         free_import_map(imp_keys, imp_vals, imp_count);
         if (result_owned) {

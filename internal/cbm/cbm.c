@@ -124,7 +124,16 @@ void cbm_defs_push(CBMDefArray *arr, CBMArena *a, CBMDefinition def) {
 }
 
 void cbm_calls_push(CBMCallArray *arr, CBMArena *a, CBMCall call) {
-    GROW_ARRAY(arr, a);
+    (void)a;
+    if (arr->count >= arr->cap) {
+        int new_cap = arr->cap == 0 ? CBM_SZ_32 : arr->cap * PAIR_LEN;
+        CBMCall *new_items = realloc(arr->items, (size_t)new_cap * sizeof(*arr->items));
+        if (!new_items) {
+            return;
+        }
+        arr->items = new_items;
+        arr->cap = new_cap;
+    }
     arr->items[arr->count++] = call;
 }
 
@@ -831,6 +840,7 @@ void cbm_free_result(CBMFileResult *result) {
         ts_tree_delete(result->cached_tree);
         result->cached_tree = NULL;
     }
+    free(result->calls.items);
     cbm_arena_destroy(&result->arena);
     free(result);
 }
